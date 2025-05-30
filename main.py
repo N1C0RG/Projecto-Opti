@@ -49,9 +49,9 @@ class Model:
             # funcion objetivo
 
             self.model.setObjective(
-                gp.quicksum((c[e][i][t] + s[e][t]) * x[i][e][t] for i in I for e in E for t in range(T)) +
-                gp.quicksum(n[e] * z[m][e]* y[i][e][t] for m in C for i in I for e in E for t in range(T)) -
-                gp.quicksum(w[i][t] * b[i] for i in I for t in range(T)) +
+                gp.quicksum((c[e][i][t] + s[e][t]) * x[i][e][t] for i in range(I) for e in range(E) for t in range(T)) +
+                gp.quicksum(n[e] * z[m][e]* y[i][e][t] for m in range(C) for i in range(I) for e in range(E) for t in range(T)) -
+                gp.quicksum(w[i][t] * b[i] for i in range(I) for t in range(T)) +
                 # gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o), GRB.MINIMIZE
                 0, GRB.MINIMIZE
             )
@@ -62,53 +62,53 @@ class Model:
 
             # R: restriccion de presupuesto 
             self.model.addConstrs(
-                gp.quicksum((c[i][e][t] + s[e][t]) * x[i][e][t] for e in E for t in range(T)) + 
+                gp.quicksum((c[i][e][t] + s[e][t]) * x[i][e][t] for e in range(E) for t in range(T)) + 
                 # gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o) + 
-                gp.quicksum(n[e] * z[m][e] * y[m][i][t] for m in C for e in E for t in range(T)) <= f[i] for i in I
+                gp.quicksum(n[e] * z[m][e] * y[m][i][t] for m in range(C) for e in range(E) for t in range(T)) <= f[i] for i in range(I)
             )
 
             # R: limite movilidad 
             self.model.addConstrs(
-                gp.quicksum(V[e][o][i][t] for o in I if o != i) <= x[e][i][t] for e in E for i in I for t in range(T)
+                gp.quicksum(V[e][o][i][t] for o in range(I) if o != i) <= x[e][i][t] for e in range(E) for i in range(I) for t in range(T)
             ) 
 
             # R1:  Restriccion de disponibilidad en un dia
             self.model.addConstrs(
-                gp.quicksum(x[e][i][t] for e in E) <= j[i][t] for i in I for t in range(T)
+                gp.quicksum(x[e][i][t] for e in range(E)) <= j[i][t] for i in range(I) for t in range(T)
             )
 
             # R3: Restriccion de cantidad minima de carabineros por sector
             self.model.addConstrs(
-                gp.quicksum(x[e][i][t] for e in E) >= k[i][t] + q[e][i][t] for e in E for i in I for t in range(T)
+                gp.quicksum(x[e][i][t] for e in range(E)) >= k[i][t] + q[e][i][t] for e in range(E) for i in range(I) for t in range(T)
             )
 
             # R4: Camtoidad maxima por sector 
             self.model.addConstrs(
-                x[e][i][t] >= u[e][i][t] for e in E for i in I for t in range(T)
+                x[e][i][t] >= u[e][i][t] for e in range(E) for i in range(I) for t in range(T)
             )
 
             # R6: Cada carabinero puede trabajar un maximo de d dıas en el año 
             self.model.addConstrs(
-                gp.quicksum(y[m][i][t] for i in I for t in range(T)) <= d for m in C 
+                gp.quicksum(y[m][i][t] for i in range(I) for t in range(T)) <= d for m in range(C) 
             ) 
 
             # R7: Relacion X e Y 
             #TODO: puede generar error 
             self.model.addConstrs(
-                gp.quicksum(y[m][i][t] * z[m][e] for m in C) + 
-                gp.quicksum(V[e][o][i][t] for o in I if o != i) - 
-                gp.quicksum(V[e][o][i][t] for o in I if o != i) 
-                  == x[e][i][t] for e in E for i in I for t in range(T)
+                gp.quicksum(y[m][i][t] * z[m][e] for m in range(C)) + 
+                gp.quicksum(V[e][o][i][t] for o in range(I) if o != i) - 
+                gp.quicksum(V[e][o][i][t] for o in range(I) if o != i) 
+                  == x[e][i][t] for e in range(E) for i in range(I) for t in range(T)
             ) 
 
             # R8: Definicion cantidad de carabineros extra
             self.model.addConstrs(
-                w[i][t] == gp.quicksum(x[e][i][t] - q[e][i][t] for e in E) for i in I for t in range(T)
+                w[i][t] == gp.quicksum(x[e][i][t] - q[e][i][t] for e in range(E)) for i in range(I) for t in range(T)
             )
 
             # R9: Restriccion limite de bono 
             self.model.addConstrs(
-                gp.quicksum(w[i][t] for t in range(T)) <= a[i] for i in I
+                gp.quicksum(w[i][t] for t in range(T)) <= a[i] for i in range(I)
             )
 
         def solve_model(self): 
