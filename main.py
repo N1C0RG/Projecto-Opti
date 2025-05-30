@@ -2,11 +2,12 @@ import pandas as pd
 import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
+import data_loader
 
 class Model: 
     def __init__(self): 
         self.model = gp.Model("OptimizationModel")
-        self.data_loader = DataLoader()
+        self.data_loader = data_loader.DataLoader()
 
 
         def load_data(self):
@@ -21,14 +22,14 @@ class Model:
 
             # parametros monetarios 
             f = self.data_loader.load_data() # presupuesto anual por sector 
-            c = self.data_loader.load_data() # costo movilizacion a sector para i especialidad e dia t
-            s = self.data_loader.load_data() # costo mantencion equipamiento para e dia t \
+            c = self.data_loader.load_data('ceit.csv', ['Sector', 'Especialidad', 'Dia'], 'ceit') # costo movilizacion a sector para i especialidad e dia t
+            s = self.data_loader.load_data() # costo mantencion equipamiento para e dia t 
             n = self.data_loader.load_data() # sueldo diario carbienro especialidad e 
             b = self.data_loader.load_data() # bono por sector i 
             a = self.data_loader.load_data() # cantidad maxima bono anual 
 
             # parametros de sector 
-            j = self.data_loader.load_data() # cantidad de carabienros e disponibles el dia t 
+            j = self.data_loader.load_data('jet.csv', ['Especialidad', 'Dia'], 'jet') # cantidad de carabienros e disponibles el dia t 
             k = self.data_loader.load_data() # cantidad minima carabienros e sector i dia t 
             q = self.data_loader.load_data() # cantidad caribienros extra e necesaria para i dia t 
             u = self.data_loader.load_data() # cantidad maxima carabienros e en sector i dia t 
