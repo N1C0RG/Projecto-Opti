@@ -42,6 +42,8 @@ class DataLoader:
                 matrix[idx[0]][idx[1]] = val
             elif len(idx) == 3:
                 matrix[idx[0]][idx[1]][idx[2]] = val
+            elif len(idx) == 1:
+                matrix[idx[0]] = val
             else:
                 raise ValueError("Only 2D, 3D or 4D supported.")
 
