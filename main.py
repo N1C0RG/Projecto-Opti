@@ -33,7 +33,7 @@ class Model:
             k = self.data_loader.load_data() # cantidad minima carabienros e sector i dia t 
             q = self.data_loader.load_data() # cantidad caribienros extra e necesaria para i dia t 
             u = self.data_loader.load_data() # cantidad maxima carabienros e en sector i dia t 
-            g = self.data_loader.load_data() # 1 si sector i es critico dia t 
+            g = self.data_loader.load_data() # costo de movilizacion de carabienros extra en sector i dia t 
             v = self.data_loader.load_data() # 1 si sector i necesita carabinero con especialidad e el dia t
 
             # parametros de especialidad
@@ -44,18 +44,32 @@ class Model:
             x = self.model.addVars(E, I, T, vtype=GRB.CONTINUOUS, name="x") # cantidad de carabineros con especialidad e en i el dia t 
             y = self.model.addVars(C, I, T, vtype=GRB.BINARY, name="y") # 1 si el carabinero trabajo en i el dia t
             w = self.model.addVars(I, T, vtype=GRB.CONTINUOUS, name="w") # cantidad de carabineros extra en i el dia t 
+            V = self.model.addVars(E, I, I, T, vtype=GRB.CONTINUOUS, name="V") # cantidad de carabineros e que se mueven de i a o el dia t 
 
             # funcion objetivo
 
             self.model.setObjective(
                 gp.quicksum((c[e][i][t] + s[e][t]) * x[i][e][t] for i in I for e in E for t in range(T)) +
                 gp.quicksum(n[e] * z[m][e]* y[i][e][t] for m in C for i in I for e in E for t in range(T)) -
-                gp.quicksum(w[i][t] * b[i] for i in I for t in range(T)), GRB.MINIMIZE
+                gp.quicksum(w[i][t] * b[i] for i in I for t in range(T)) + 
+                gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o), GRB.MINIMIZE
             )
 
             # restricciones
 
             M = 1e6  # Big M
+
+            # R: restriccion de presupuesto 
+            self.model.addConstrs(
+                gp.quicksum((c[i][e][t] + s[e][t]) * x[i][e][t] for e in E for t in range(T)) + 
+                gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o) + 
+                gp.quicksum(n[e] * z[m][e] * y[m][i][t] for m in C for e in E for t in range(T)) <= f[i] for i in I
+            )
+
+            # R: limite movilidad 
+            self.model.addConstrs(
+                gp.quicksum(V[e][o][i][t] for o in I if o != i) <= x[e][i][t] for e in E for i in I for t in range(T)
+            ) 
 
             # R1:  Restriccion de disponibilidad en un dia
             self.model.addConstrs(
@@ -64,17 +78,12 @@ class Model:
 
             # R3: Restriccion de cantidad minima de carabineros por sector
             self.model.addConstrs(
-                gp.quicksum(x[e][i][t] for e in E) >= k[i][t] + q[e][i][t] * g[i][t] for e in E for i in I for t in range(T)
+                gp.quicksum(x[e][i][t] for e in E) >= k[i][t] + q[e][i][t] for e in E for i in I for t in range(T)
             )
 
-            # R4: Compatibilidad entre requerimiento en el sector y especialidad
+            # R4: Camtoidad maxima por sector 
             self.model.addConstrs(
-                x[e][i][t] <= M * v[i][e][t] for e in E for i in I for t in range(T)
-            )
-
-            # R5: Restriccion de cantidad maxima de carabineros por sector
-            self.model.addConstrs(
-                gp.quicksum(x[e][i][t] for e in E) <= u[i][t] for i in I for t in range(T)
+                x[e][i][t] >= u[e][i][t] for e in E for i in I for t in range(T)
             )
 
             # R6: Cada carabinero puede trabajar un maximo de d dıas en el año 
@@ -83,8 +92,12 @@ class Model:
             ) 
 
             # R7: Relacion X e Y 
+            #TODO: puede generar error 
             self.model.addConstrs(
-                gp.quicksum(y[m][i][t] * z[m][e] for m in C) == x[e][i][t] for e in E for i in I for t in range(T)
+                gp.quicksum(y[m][i][t] * z[m][e] for m in C) + 
+                gp.quicksum(V[e][o][i][t] for o in I if o != i) - 
+                gp.quicksum(V[e][o][i][t] for o in I if o != i) 
+                  == x[e][i][t] for e in E for i in I for t in range(T)
             ) 
 
             # R8: Definicion cantidad de carabineros extra
