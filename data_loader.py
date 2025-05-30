@@ -48,9 +48,11 @@ class DataLoader:
         return matrix
         
 
+'''
 dl = DataLoader()
 
 ceit = dl.load_data('ceit.csv', ['Sector', 'Especialidad', 'Dia'], 'ceit')
+
 for( i, sector) in enumerate(ceit):
     for (e, especialidad) in enumerate(sector):
         for (d, ceit_value) in enumerate(especialidad):
@@ -61,3 +63,4 @@ jet = dl.load_data('jet.csv', ['Especialidad', 'Dia'], 'jet')
 for (e, especialidad) in enumerate(jet):
     for (d, jet_value) in enumerate(especialidad):
         print(f"Especialidad {e+1}, Dia {d+1}: JET = {jet_value}")
+'''

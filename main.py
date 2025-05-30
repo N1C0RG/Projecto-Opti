@@ -15,30 +15,30 @@ class Model:
 
         def build_model(self): 
             # conjuntos 
-            I = self.data_loader.load_data() # conjunto sectores con i in I
-            C = self.data_loader.load_data() # conjunto carabienros con m in C
-            T = 360 # tiempo en dias 
-            E = self.data_loader.load_data() # conjunto especialidades e in E 
+            I = 8 # conjunto sectores con i in I
+            C = 800 # conjunto carabienros con m in C
+            T = 365 # tiempo en dias 
+            E = 6 # conjunto especialidades e in E 
 
             # parametros monetarios 
-            f = self.data_loader.load_data() # presupuesto anual por sector 
-            c = self.data_loader.load_data('ceit.csv', ['Sector', 'Especialidad', 'Dia'], 'ceit') # costo movilizacion a sector para i especialidad e dia t
-            s = self.data_loader.load_data() # costo mantencion equipamiento para e dia t 
-            n = self.data_loader.load_data() # sueldo diario carbienro especialidad e 
-            b = self.data_loader.load_data() # bono por sector i 
-            a = self.data_loader.load_data() # cantidad maxima bono anual 
+            f = self.data_loader.load_data('fi.csv', ['Sector'], 'fi') # presupuesto anual por sector 
+            c = self.data_loader.load_data('ceit.csv', ['Especialidad', 'Sector', 'Dia'], 'ceit') # costo movilizacion a sector para i especialidad e dia t
+            s = self.data_loader.load_data('set.csv', ['Especialidad', 'Dia'], 'set') # costo mantencion equipamiento para e dia t 
+            n = self.data_loader.load_data('ne.csv', ['Especialidad'], 'ne') # sueldo diario carbienro especialidad e 
+            b = self.data_loader.load_data('bi.csv', ['Sector'], 'bi') # bono por sector i 
+            a = 100000000 # cantidad maxima bono anual 
 
             # parametros de sector 
             j = self.data_loader.load_data('jet.csv', ['Especialidad', 'Dia'], 'jet') # cantidad de carabienros e disponibles el dia t 
-            k = self.data_loader.load_data() # cantidad minima carabienros e sector i dia t 
-            q = self.data_loader.load_data() # cantidad caribienros extra e necesaria para i dia t 
-            u = self.data_loader.load_data() # cantidad maxima carabienros e en sector i dia t 
-            g = self.data_loader.load_data() # costo de movilizacion de carabienros extra en sector i dia t 
-            v = self.data_loader.load_data() # 1 si sector i necesita carabinero con especialidad e el dia t
+            k = self.data_loader.load_data('keit.csv', ['Especialidad', 'Sector', 'Dia'], 'keit') # cantidad minima carabienros e sector i dia t 
+            q = self.data_loader.load_data('qeit.csv', ['Especialidad', 'Sector', 'Dia'], 'qeit') # cantidad caribienros extra e necesaria para i dia t 
+            u = self.data_loader.load_data('ueit.csv', ['Especialidad', 'Sector', 'Dia'], 'ueit') # cantidad maxima carabienros e en sector i dia t 
+            # g = self.data_loader.load_data() # costo de movilizacion de carabienros extra en sector i dia t 
+            # v = self.data_loader.load_data() # 1 si sector i necesita carabinero con especialidad e el dia t
 
             # parametros de especialidad
-            z = self.data_loader.load_data() # 1 si carabienro e tiene especialidad e 
-            d = self.data_loader.load_data() # maximo dias que un carabinero puede trabajar al año 
+            z = self.data_loader.load_data('zce', ['Carabinero', 'Especialidad'], 'zce') # 1 si carabienro e tiene especialidad e 
+            d = 294 # maximo dias que un carabinero puede trabajar al año 
 
             # variables de decision
             x = self.model.addVars(E, I, T, vtype=GRB.CONTINUOUS, name="x") # cantidad de carabineros con especialidad e en i el dia t 
@@ -51,8 +51,9 @@ class Model:
             self.model.setObjective(
                 gp.quicksum((c[e][i][t] + s[e][t]) * x[i][e][t] for i in I for e in E for t in range(T)) +
                 gp.quicksum(n[e] * z[m][e]* y[i][e][t] for m in C for i in I for e in E for t in range(T)) -
-                gp.quicksum(w[i][t] * b[i] for i in I for t in range(T)) + 
-                gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o), GRB.MINIMIZE
+                gp.quicksum(w[i][t] * b[i] for i in I for t in range(T)) +
+                # gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o), GRB.MINIMIZE
+                0, GRB.MINIMIZE
             )
 
             # restricciones
@@ -62,7 +63,7 @@ class Model:
             # R: restriccion de presupuesto 
             self.model.addConstrs(
                 gp.quicksum((c[i][e][t] + s[e][t]) * x[i][e][t] for e in E for t in range(T)) + 
-                gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o) + 
+                # gp.quicksum((g[e][o][i][t] * V[e][o][i][t]) for e in E for o in I for t in T for i in I if i != o) + 
                 gp.quicksum(n[e] * z[m][e] * y[m][i][t] for m in C for e in E for t in range(T)) <= f[i] for i in I
             )
 
