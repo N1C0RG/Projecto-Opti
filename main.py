@@ -10,8 +10,8 @@ class Model:
     def build_model(self):
         # conjuntos
         I = 8   # sectores
-        C = 800  # carabineros
-        T = 365  # días
+        C = 50  # carabineros
+        T = 10  # días
         E = 6   # especialidades
 
         # parámetros monetarios
@@ -27,10 +27,10 @@ class Model:
         k = self.data_loader.load_data('keit.csv', ['Especialidad', 'Sector', 'Dia'], 'keit')
         q = self.data_loader.load_data('qeit.csv', ['Especialidad', 'Sector', 'Dia'], 'qeit')
         u = self.data_loader.load_data('ueit.csv', ['Especialidad', 'Sector', 'Dia'], 'ueit')
-
+        g = self.data_loader.load_data('geikt.csv', ['Dia','Desde','Hacia','Costo'], 'geikt')
         # parámetros de especialidad
         z = self.data_loader.load_data('zce.csv', ['Carabinero', 'Especialidad'], 'zce')
-        d = 294
+        d = 40
 
         # variables de decisión
         x = self.model.addVars(range( E), range(I), range( T), vtype=GRB.CONTINUOUS, name="x")
@@ -42,7 +42,8 @@ class Model:
         self.model.setObjective(
             gp.quicksum((c[e][i][t] + s[e][t]) * x[e, i, t] for e in range( E) for i in range( I) for t in range( T)) +
             gp.quicksum(n[e] * z[m][e] * y[m, i, t] for m in range( C) for i in range( I) for e in range( E) for t in range( T)) -
-            gp.quicksum(w[i, t] * b[i] for i in range( I) for t in range( T)),
+            gp.quicksum(w[i, t] * b[i] for i in range( I) for t in range( T)) + 
+            gp.quicksum((g[e][o][i][t] * V[e, o, i, t]) for e in E for o in I for t in T for i in I if i != o),
             GRB.MINIMIZE
         )
 
@@ -52,8 +53,9 @@ class Model:
         # R: restricción de presupuesto
         self.model.addConstrs(
             gp.quicksum((c[e][i][t] + s[e][t]) * x[e, i, t] for e in range( E) for t in range( T)) +
-            gp.quicksum(n[e] * z[m][e] * y[m, i, t] for m in range( C) for e in range( E) for t in range( T)) <= f[i]
-            for i in range( I)
+            gp.quicksum(n[e] * z[m][e] * y[m, i, t] for m in range( C) for e in range( E) for t in range( T)) + 
+            gp.quicksum((g[e][o][i][t] * V[e, o, i, t]) for e in E for o in I for t in T for i in I if i != o) 
+            <= f[i] for i in range( I)
         )
 
         # R: límite movilidad
