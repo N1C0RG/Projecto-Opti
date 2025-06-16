@@ -1,6 +1,7 @@
 import gurobipy as gp
 from gurobipy import GRB
 import data_loader
+import data_saver
 
 I = 8   # sectores
 C = 800  # carabineros
@@ -10,6 +11,7 @@ E = 6   # especialidades
 class Model:
     def __init__(self):
         self.model = gp.Model("OptimizationModel")
+        self.model.setParam('Timelimit', 1800)
         self.data_loader = data_loader.DataLoader()
 
     def build_model(self):
@@ -47,27 +49,21 @@ class Model:
 
         # restricciones
         M = 1e6
-
-        # R: restricción de presupuesto
-        self.restriccion_presupuesto = self.model.addConstrs(
-            gp.quicksum((self.c[e][i][t] + self.s[e][t]) * self.x[e, i, t] for e in range(E) for t in range(T)) +
-            gp.quicksum(self.n[e] * self.z[m][e] * self.y[m, i, t] for m in range(C) for e in range(E) for t in range(T)) + 
-            gp.quicksum((self.g[e][o][i][t] * self.V[e, o, i, t]) for e in range(E) for o in range(I) for t in range(T) for i in range(I) if i != o) 
-            <= self.f[i] for i in range(I)
-        )
-
-        # R: límite movilidad
-        self.model.addConstrs(
-            gp.quicksum(self.V[e, o, i, t] for o in range(I) if o != i) <= self.x[e, i, t]
-            for e in range(E) for i in range(I) for t in range(T)
-        )
-
+        
         # R1: disponibilidad diaria
-        self.disponibilidad_diaria = self.model.addConstrs(
-            gp.quicksum(self.x[e, i, t] for i in range(I)) <= self.j[e][t]
-            for e in range(E) for t in range(T)
+        self.model.addConstrs(
+            gp.quicksum(x[e, i, t] for i in range(I)) <= j[e][t]
+            for e in range(E) for t in range( T)
         )
 
+        # R2: restricción de presupuesto
+        self.model.addConstrs(
+            gp.quicksum((c[e][i][t] + s[e][t]) * x[e, i, t] for e in range( E) for t in range( T)) +
+            gp.quicksum(n[e] * z[m][e] * y[m, i, t] for m in range( C) for e in range( E) for t in range( T)) + 
+            gp.quicksum((g[e][o][i][t] * V[e, o, i, t]) for e in range(E) for o in range(I) for t in range(T) for i in range(I) if i != o) 
+            <= f[i] for i in range( I)
+        )
+        
         # R3: mínimo por sector
         self.model.addConstrs(
             gp.quicksum(self.x[e, i, t] for e in range(E)) >= self.k[e][i][t] + self.q[e][i][t]
@@ -80,13 +76,13 @@ class Model:
             for e in range(E) for i in range(I) for t in range(T)
         )
 
-        # R6: máximo días por carabinero
+        # R5: máximo días por carabinero
         self.model.addConstrs(
             gp.quicksum(self.y[m, i, t] for i in range(I) for t in range(T)) <= self.d
             for m in range(C)
         )
 
-        # R7: relación X e Y
+        # R6: relación X e Y
         self.model.addConstrs(
             gp.quicksum(self.y[m, i, t] * self.z[m][e] for m in range(C)) +
             gp.quicksum(self.V[e, o, i, t] for o in range(I) if o != i) -
@@ -95,16 +91,22 @@ class Model:
             for e in range(E) for i in range(I) for t in range(T)
         )
 
-        # R8: definición carabineros extra
+        # R7: definición carabineros extra
         self.model.addConstrs(
             self.w[i, t] == gp.quicksum(self.x[e, i, t] - self.q[e][i][t] for e in range(E))
             for i in range(I) for t in range(T)
         )
 
-        # R9: límite bono anual
+        # R8: límite bono anual
         self.model.addConstrs(
             gp.quicksum(self.w[i, t] for t in range(T)) <= self.a
             for i in range(I)
+        )
+
+        # R9: límite movilidad
+        self.model.addConstrs(
+            gp.quicksum(V[e, o, i, t] for o in range( I) if o != i) <= x[e, i, t]
+            for e in range( E) for i in range( I) for t in range( T)
         )
 
     def solve_model(self):
@@ -175,6 +177,12 @@ def main():
     model.control_analysis()
     model.solve_model()
     model.print_results()
+
+    saver = data_saver.DataSaver()
+    data = []
+    for v in model.model.getVars():
+        data.append(f"{v.VarName} = {v.X}")
+    saver.save_data('results.txt', data)
 
 if __name__ == "__main__":
     main()
