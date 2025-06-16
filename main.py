@@ -63,7 +63,7 @@ class Model:
         )
 
         # R1: disponibilidad diaria
-        self.model.addConstrs(
+        self.disponibilidad_diaria = self.model.addConstrs(
             gp.quicksum(self.x[e, i, t] for i in range(I)) <= self.j[e][t]
             for e in range(E) for t in range(T)
         )
@@ -96,7 +96,7 @@ class Model:
         )
 
         # R8: definición carabineros extra
-        self.model.addConstrs(
+        self.carabineros_extra = self.model.addConstrs(
             self.w[i, t] == gp.quicksum(self.x[e, i, t] - self.q[e][i][t] for e in range(E))
             for i in range(I) for t in range(T)
         )
@@ -113,46 +113,41 @@ class Model:
     def analysis_scenarios(self):
 
         print("\n--- Análisis de escenarios ---")
-        self.model.NumScenarios = 2
+        self.model.NumScenarios = 3
 
         # escenario 0: Modelo base
         self.model.Params.ScenarioNumber = 0 
         self.model.ScenNName  = "Modelo base"
 
-        # escenario 1: Aumento de presupuesto f
+        # escenario 1: Cambio de presupuesto f
         self.model.Params.ScenarioNumber  = 1
-        self.model.ScenNName  = "Aumento de presupuesto f"
+        self.model.ScenNName  = "Cambio de presupuesto f"
+
         for i in range(I): 
-            self.restriccion_presupuesto[i].ScenNRHS = self.f[i] * 0.1  # Aumentar el RHS de la restricción de presupuesto en un 10%
+            self.restriccion_presupuesto[i].ScenNRHS = self.f[i] * 0.1 
         
+        # escenario 2: Cambio de movilidad carabineros
+        self.model.Params.ScenarioNumber = 2
+        self.model.ScenNName  = "Cambio disponibilidad diaria carabineros"
+
+        for e in range(E):
+            for t in range(T):
+                self.disponibilidad_diaria[e, t].ScenNRHS = self.j[e][t] * 2.1
+        
+        # escenario 3: Cambio de carabineros extra 
+        self.model.Params.ScenarioNumber = 3
+        self.model.ScenNName  = "Cambio de carabineros extra"
+
+        for i in range(I):
+            for t in range(T):
+                self.carabineros_extra[i, t].ScenNRHS = self.w[i, t] * 0.5
 
 
-
-    def sensitivity_analysis(self):
-        print("\n--- Análisis de sensibilidad (modelo relajado LP) ---")
-        if self.model.IsMIP:
-            print("⚠️  El modelo es MIP. El análisis de sensibilidad solo está disponible para modelos LP.")
-            return
-
-        print("\nVariables continuas:")
-        for v in self.model.getVars():
-            if v.VType == GRB.CONTINUOUS:
-                try:
-                    print(f"{v.VarName}: valor óptimo = {v.X:.2f}, SAObjLow = {v.SAObjLow:.2f}, SAObjUp = {v.SAObjUp:.2f}, Reduced Cost = {v.RC:.2f}")
-                except gp.GurobiError as e:
-                    print(f"{v.VarName}: No disponible ({e})")
-
-        print("\nRestricciones:")
-        for r in self.model.getConstrs():
-            try:
-                print(f"{r.ConstrName}: RHS = {r.RHS:.2f}, Shadow Price = {r.Pi:.2f}, SARHSLow = {r.SARHSLow:.2f}, SARHSUp = {r.SARHSUp:.2f}")
-            except gp.GurobiError as e:
-                print(f"{r.ConstrName}: No disponible ({e})")
 
     def print_results(self):
         for s in range(self.model.NumScenarios):
             self.model.Params.ScenarioNumber = s
-            print(f"\n\n------ Scenario {s} ({self.model.ScenNName})")
+            print(f"Escenario {s} ({self.model.ScenNName})")
 
             if self.model.ModelSense * self.model.ScenNObjVal >= GRB.INFINITY:
                 if self.model.ModelSense * self.model.ScenNObjBound >= GRB.INFINITY:
@@ -161,32 +156,23 @@ class Model:
                     print("\nNO SOLUTION")
             else:
                 print(f"\nValor objetivo: {self.model.ModelSense * self.model.ScenNObjVal:.2f}")
-                # if self.model.status == GRB.OPTIMAL:
-                #     print(f"\nValor óptimo: {self.model.objVal:.2f} unidades de utilidad\n")
-                #     self.sensitivity_analysis()
-                # elif self.model.status == GRB.INFEASIBLE:
-                #     print("Modelo infactible. Calculando IIS...")
-                #     self.model.computeIIS()
-                #     self.model.write("modelo.ilp")
-                #     print("Archivo IIS escrito como 'modelo.ilp' en el directorio actual.")
-                # elif self.model.status == GRB.INF_OR_UNBD:
-                #     print("Modelo infactible o no acotado. Reintentando solo para infactibilidad...")
-                #     self.model.setParam('DualReductions', 0)
-                #     self.model.optimize()
-                #     if self.model.status == GRB.INFEASIBLE:
-                #         print("Modelo infactible tras desactivar DualReductions. Calculando IIS...")
-                #         self.model.computeIIS()
-                #         self.model.write("modelo.ilp")
-                #         print("Archivo IIS escrito como 'modelo.ilp' en el directorio actual.")
-                #     else:
-                #         print("No se pudo encontrar una solución óptima ni IIS.")
-                # else:
-                #     print("No se pudo encontrar una solución óptima.")
+    
+    def control_analysis(self):
+        print("¿Desea realizar un análisis de sensibilidad? (s/n)") 
+        while True:
+            choice = input().strip().lower()
+            if choice == 's':
+                self.analysis_scenarios()
+                break
+            elif choice == 'n':
+                print("Análisis de sensibilidad omitido.")
+                break
+
 
 def main():
     model = Model()
     model.build_model()
-    model.analysis_scenarios()
+    model.control_analysis()
     model.solve_model()
     model.print_results()
 
