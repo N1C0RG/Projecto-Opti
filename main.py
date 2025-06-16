@@ -3,6 +3,11 @@ from gurobipy import GRB
 import data_loader
 import data_saver
 
+I = 8   # sectores
+C = 800  # carabineros
+T = 150  # días
+E = 6   # especialidades
+
 class Model:
     def __init__(self):
         self.model = gp.Model("OptimizationModel")
@@ -10,47 +15,41 @@ class Model:
         self.data_loader = data_loader.DataLoader()
 
     def build_model(self):
-        # conjuntos
-        I = 8   # sectores
-        C = 800  # carabineros
-        T = 365  # días
-        E = 6   # especialidades
-
         # parámetros monetarios
-        f = self.data_loader.load_data('fi.csv', ['Sector'], 'fi')
-        c = self.data_loader.load_data('ceit.csv', ['Especialidad', 'Sector', 'Dia'], 'ceit')
-        s = self.data_loader.load_data('set.csv', ['Especialidad', 'Dia'], 'set')
-        n = self.data_loader.load_data('ne.csv', ['Especialidad'], 'ne')
-        b = self.data_loader.load_data('bi.csv', ['Sector'], 'bi')
-        a = 100000000
-
+        self.f = self.data_loader.load_data('fi.csv', ['Sector'], 'fi')
+        self.c = self.data_loader.load_data('ceit.csv', ['Especialidad', 'Sector', 'Dia'], 'ceit')
+        self.s = self.data_loader.load_data('set.csv', ['Especialidad', 'Dia'], 'set')
+        self.n = self.data_loader.load_data('ne.csv', ['Especialidad'], 'ne')
+        self.b = self.data_loader.load_data('bi.csv', ['Sector'], 'bi')
+        self.a = 100000000
         # parámetros de sector
-        j = self.data_loader.load_data('jet.csv', ['Especialidad', 'Dia'], 'jet')
-        k = self.data_loader.load_data('keit.csv', ['Especialidad', 'Sector', 'Dia'], 'keit')
-        q = self.data_loader.load_data('qeit.csv', ['Especialidad', 'Sector', 'Dia'], 'qeit')
-        u = self.data_loader.load_data('ueit.csv', ['Especialidad', 'Sector', 'Dia'], 'ueit')
-        g = self.data_loader.load_data('geikt.csv', ['Especialidad', 'Desde', 'Hacia', 'Dia'], 'geikt')
+        self.j = self.data_loader.load_data('jet.csv', ['Especialidad', 'Dia'], 'jet')
+        self.k = self.data_loader.load_data('keit.csv', ['Especialidad', 'Sector', 'Dia'], 'keit')
+        self.q = self.data_loader.load_data('qeit.csv', ['Especialidad', 'Sector', 'Dia'], 'qeit')
+        self.u = self.data_loader.load_data('ueit.csv', ['Especialidad', 'Sector', 'Dia'], 'ueit')
+        self.g = self.data_loader.load_data('geikt.csv', ['Especialidad', 'Desde', 'Hacia', 'Dia'], 'geikt')
         # parámetros de especialidad
-        z = self.data_loader.load_data('zce.csv', ['Carabinero', 'Especialidad'], 'zce')
-        d = 294
+        self.z = self.data_loader.load_data('zce.csv', ['Carabinero', 'Especialidad'], 'zce')
+        self.d = 294
 
         # variables de decisión
-        x = self.model.addVars(range(E), range(I), range( T), vtype=GRB.CONTINUOUS, name="x")
-        y = self.model.addVars(range(C), range( I), range( T), vtype=GRB.BINARY, name="y")
-        w = self.model.addVars(range(I), range( T), vtype=GRB.CONTINUOUS, name="w")
-        V = self.model.addVars(range(E), range( I), range( I), range( T), vtype=GRB.CONTINUOUS, name="V")
+        self.x = self.model.addVars(range(E), range(I), range(T), vtype=GRB.CONTINUOUS, name="x")
+        self.y = self.model.addVars(range(C), range(I), range(T), vtype=GRB.BINARY, name="y")
+        self.w = self.model.addVars(range(I), range(T), vtype=GRB.CONTINUOUS, name="w")
+        self.V = self.model.addVars(range(E), range(I), range(I), range(T), vtype=GRB.CONTINUOUS, name="V")
+
         # función objetivo
         self.model.setObjective(
-            gp.quicksum((c[e][i][t] + s[e][t]) * x[e, i, t] for e in range( E) for i in range( I) for t in range( T)) +
-            gp.quicksum(n[e] * z[m][e] * y[m, i, t] for m in range( C) for i in range( I) for e in range( E) for t in range( T)) -
-            gp.quicksum(w[i, t] * b[i] for i in range( I) for t in range( T)) + 
-            gp.quicksum((g[e][o][i][t] * V[e, o, i, t]) for e in range(E) for o in range(I) for i in range(I) for t in range(T) if i != o),
+            gp.quicksum((self.c[e][i][t] + self.s[e][t]) * self.x[e, i, t] for e in range(E) for i in range(I) for t in range(T)) +
+            gp.quicksum(self.n[e] * self.z[m][e] * self.y[m, i, t] for m in range(C) for i in range(I) for e in range(E) for t in range(T)) -
+            gp.quicksum(self.w[i, t] * self.b[i] for i in range(I) for t in range(T)) + 
+            gp.quicksum((self.g[e][o][i][t] * self.V[e, o, i, t]) for e in range(E) for o in range(I) for i in range(I) for t in range(T) if i != o),
             GRB.MINIMIZE
         )
 
         # restricciones
         M = 1e6
-
+        
         # R1: disponibilidad diaria
         self.model.addConstrs(
             gp.quicksum(x[e, i, t] for i in range(I)) <= j[e][t]
@@ -64,44 +63,44 @@ class Model:
             gp.quicksum((g[e][o][i][t] * V[e, o, i, t]) for e in range(E) for o in range(I) for t in range(T) for i in range(I) if i != o) 
             <= f[i] for i in range( I)
         )
-
+        
         # R3: mínimo por sector
         self.model.addConstrs(
-            gp.quicksum(x[e, i, t] for e in range( E)) >= k[e][i][t] + q[e][i][t]
-            for e in range( E) for i in range( I) for t in range( T)
+            gp.quicksum(self.x[e, i, t] for e in range(E)) >= self.k[e][i][t] + self.q[e][i][t]
+            for e in range(E) for i in range(I) for t in range(T)
         )
 
         # R4: máximo por sector
-        self.model.addConstrs(
-            x[e, i, t] <= u[e][i][t]
-            for e in range( E) for i in range( I) for t in range( T)
+        self.maximo_carabineros_sector = self.model.addConstrs(
+            self.x[e, i, t] <= self.u[e][i][t]
+            for e in range(E) for i in range(I) for t in range(T)
         )
 
         # R5: máximo días por carabinero
         self.model.addConstrs(
-            gp.quicksum(y[m, i, t] for i in range( I) for t in range( T)) <= d
-            for m in range( C)
+            gp.quicksum(self.y[m, i, t] for i in range(I) for t in range(T)) <= self.d
+            for m in range(C)
         )
 
         # R6: relación X e Y
         self.model.addConstrs(
-            gp.quicksum(y[m, i, t] * z[m][e] for m in range( C)) +
-            gp.quicksum(V[e, o, i, t] for o in range( I) if o != i) -
-            gp.quicksum(V[e, i, o, t] for o in range( I) if o != i)
-            == x[e, i, t]
-            for e in range( E) for i in range( I) for t in range( T)
+            gp.quicksum(self.y[m, i, t] * self.z[m][e] for m in range(C)) +
+            gp.quicksum(self.V[e, o, i, t] for o in range(I) if o != i) -
+            gp.quicksum(self.V[e, i, o, t] for o in range(I) if o != i)
+            == self.x[e, i, t]
+            for e in range(E) for i in range(I) for t in range(T)
         )
 
         # R7: definición carabineros extra
         self.model.addConstrs(
-            w[i, t] == gp.quicksum(x[e, i, t] - q[e][i][t] for e in range( E))
-            for i in range( I) for t in range( T)
+            self.w[i, t] == gp.quicksum(self.x[e, i, t] - self.q[e][i][t] for e in range(E))
+            for i in range(I) for t in range(T)
         )
 
         # R8: límite bono anual
         self.model.addConstrs(
-            gp.quicksum(w[i, t] for t in range( T)) <= a
-            for i in range( I)
+            gp.quicksum(self.w[i, t] for t in range(T)) <= self.a
+            for i in range(I)
         )
 
         # R9: límite movilidad
@@ -113,31 +112,69 @@ class Model:
     def solve_model(self):
         self.model.optimize()
 
+    def analysis_scenarios(self):
+
+        print("\n--- Análisis de escenarios ---")
+        self.model.NumScenarios = 4
+
+        # escenario 0: Modelo base
+        self.model.Params.ScenarioNumber = 0 
+        self.model.ScenNName  = "Modelo base"
+
+        # escenario 1: Cambio de presupuesto f
+        self.model.Params.ScenarioNumber  = 1
+        self.model.ScenNName  = "Cambio de presupuesto f"
+
+        for i in range(I): 
+            self.restriccion_presupuesto[i].ScenNRHS = self.f[i] * 0.1 
+        
+        # escenario 2: Cambio de movilidad carabineros
+        self.model.Params.ScenarioNumber = 2
+        self.model.ScenNName  = "Cambio disponibilidad diaria carabineros"
+
+        for e in range(E):
+            for t in range(T):
+                self.disponibilidad_diaria[e, t].ScenNRHS = self.j[e][t] * 2.1
+        
+        # escenario 3: Cambio de maximo por sector 
+        self.model.Params.ScenarioNumber = 3
+        self.model.ScenNName  = "Cambio de maximo por sector"
+        for e in range(E):
+            for i in range(I):
+                for t in range(T):
+                    self.maximo_carabineros_sector[e, i, t].ScenNRHS = self.u[e][i][t] * 0.5
+
     def print_results(self):
-        if self.model.status == GRB.OPTIMAL:
-            print(f"\nValor óptimo: {self.model.objVal:.2f} unidades de utilidad\n")
-        elif self.model.status == GRB.INFEASIBLE:
-            print("Modelo infactible. Calculando IIS...")
-            self.model.computeIIS()
-            self.model.write("modelo.ilp")
-            print("Archivo IIS escrito como 'modelo.ilp' en el directorio actual.")
-        elif self.model.status == GRB.INF_OR_UNBD:
-            print("Modelo infactible o no acotado. Reintentando solo para infactibilidad...")
-            self.model.setParam('DualReductions', 0)
-            self.model.optimize()
-            if self.model.status == GRB.INFEASIBLE:
-                print("Modelo infactible tras desactivar DualReductions. Calculando IIS...")
-                self.model.computeIIS()
-                self.model.write("modelo.ilp")
-                print("Archivo IIS escrito como 'modelo.ilp' en el directorio actual.")
+        print("\nResumen de escenarios\n")
+ 
+        for s in range(self.model.NumScenarios):
+            self.model.Params.ScenarioNumber = s
+            print(f"Escenario {s} ({self.model.ScenNName})") 
+
+            if self.model.ModelSense * self.model.ScenNObjVal >= GRB.INFINITY:
+                if self.model.ModelSense * self.model.ScenNObjBound >= GRB.INFINITY:
+                    print("\nINFEASIBLE")
+                else:    
+                    print("\nNO SOLUTION")
             else:
-                print("No se pudo encontrar una solución óptima ni IIS.")
-        else:
-            print("No se pudo encontrar una solución óptima.")
+                print(f"\nValor objetivo: {self.model.ModelSense * self.model.ScenNObjVal:.2f}")
+    
+    def control_analysis(self):
+        print("¿Desea realizar un análisis de sensibilidad? (s/n)") 
+        while True:
+            choice = input().strip().lower()
+            if choice == 's':
+                self.analysis_scenarios()
+                break
+            elif choice == 'n':
+                print("Análisis de sensibilidad omitido.")
+                break
+
 
 def main():
     model = Model()
     model.build_model()
+    model.control_analysis()
     model.solve_model()
     model.print_results()
 
