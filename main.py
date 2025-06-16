@@ -75,7 +75,7 @@ class Model:
         )
 
         # R4: máximo por sector
-        self.model.addConstrs(
+        self.maximo_carabineros_sector = self.model.addConstrs(
             self.x[e, i, t] <= self.u[e][i][t]
             for e in range(E) for i in range(I) for t in range(T)
         )
@@ -96,7 +96,7 @@ class Model:
         )
 
         # R8: definición carabineros extra
-        self.carabineros_extra = self.model.addConstrs(
+        self.model.addConstrs(
             self.w[i, t] == gp.quicksum(self.x[e, i, t] - self.q[e][i][t] for e in range(E))
             for i in range(I) for t in range(T)
         )
@@ -113,7 +113,7 @@ class Model:
     def analysis_scenarios(self):
 
         print("\n--- Análisis de escenarios ---")
-        self.model.NumScenarios = 3
+        self.model.NumScenarios = 4
 
         # escenario 0: Modelo base
         self.model.Params.ScenarioNumber = 0 
@@ -134,20 +134,20 @@ class Model:
             for t in range(T):
                 self.disponibilidad_diaria[e, t].ScenNRHS = self.j[e][t] * 2.1
         
-        # escenario 3: Cambio de carabineros extra 
+        # escenario 3: Cambio de maximo por sector 
         self.model.Params.ScenarioNumber = 3
-        self.model.ScenNName  = "Cambio de carabineros extra"
-
-        for i in range(I):
-            for t in range(T):
-                self.carabineros_extra[i, t].ScenNRHS = self.w[i, t] * 0.5
-
-
+        self.model.ScenNName  = "Cambio de maximo por sector"
+        for e in range(E):
+            for i in range(I):
+                for t in range(T):
+                    self.maximo_carabineros_sector[e, i, t].ScenNRHS = self.u[e][i][t] * 0.5
 
     def print_results(self):
+        print("\nResumen de escenarios\n")
+ 
         for s in range(self.model.NumScenarios):
             self.model.Params.ScenarioNumber = s
-            print(f"Escenario {s} ({self.model.ScenNName})")
+            print(f"Escenario {s} ({self.model.ScenNName})") 
 
             if self.model.ModelSense * self.model.ScenNObjVal >= GRB.INFINITY:
                 if self.model.ModelSense * self.model.ScenNObjBound >= GRB.INFINITY:
