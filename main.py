@@ -1,19 +1,17 @@
 import gurobipy as gp
 from gurobipy import GRB
 import data_loader
-import data_saver
 
 class Model:
     def __init__(self):
         self.model = gp.Model("OptimizationModel")
-        self.model.setParam('Timelimit', 1800)
         self.data_loader = data_loader.DataLoader()
 
     def build_model(self):
         # conjuntos
         I = 8   # sectores
         C = 800  # carabineros
-        T = 365  # días
+        T = 200  # días
         E = 6   # especialidades
 
         # parámetros monetarios
@@ -51,18 +49,24 @@ class Model:
         # restricciones
         M = 1e6
 
-        # R1: disponibilidad diaria
-        self.model.addConstrs(
-            gp.quicksum(x[e, i, t] for i in range(I)) <= j[e][t]
-            for e in range(E) for t in range( T)
-        )
-
-        # R2: restricción de presupuesto
+        # R: restricción de presupuesto
         self.model.addConstrs(
             gp.quicksum((c[e][i][t] + s[e][t]) * x[e, i, t] for e in range( E) for t in range( T)) +
             gp.quicksum(n[e] * z[m][e] * y[m, i, t] for m in range( C) for e in range( E) for t in range( T)) + 
             gp.quicksum((g[e][o][i][t] * V[e, o, i, t]) for e in range(E) for o in range(I) for t in range(T) for i in range(I) if i != o) 
             <= f[i] for i in range( I)
+        )
+
+        # R: límite movilidad
+        self.model.addConstrs(
+            gp.quicksum(V[e, o, i, t] for o in range( I) if o != i) <= x[e, i, t]
+            for e in range( E) for i in range( I) for t in range( T)
+        )
+
+        # R1: disponibilidad diaria
+        self.model.addConstrs(
+            gp.quicksum(x[e, i, t] for i in range(I)) <= j[e][t]
+            for e in range(E) for t in range( T)
         )
 
         # R3: mínimo por sector
@@ -77,13 +81,13 @@ class Model:
             for e in range( E) for i in range( I) for t in range( T)
         )
 
-        # R5: máximo días por carabinero
+        # R6: máximo días por carabinero
         self.model.addConstrs(
             gp.quicksum(y[m, i, t] for i in range( I) for t in range( T)) <= d
             for m in range( C)
         )
 
-        # R6: relación X e Y
+        # R7: relación X e Y
         self.model.addConstrs(
             gp.quicksum(y[m, i, t] * z[m][e] for m in range( C)) +
             gp.quicksum(V[e, o, i, t] for o in range( I) if o != i) -
@@ -92,22 +96,16 @@ class Model:
             for e in range( E) for i in range( I) for t in range( T)
         )
 
-        # R7: definición carabineros extra
+        # R8: definición carabineros extra
         self.model.addConstrs(
             w[i, t] == gp.quicksum(x[e, i, t] - q[e][i][t] for e in range( E))
             for i in range( I) for t in range( T)
         )
 
-        # R8: límite bono anual
+        # R9: límite bono anual
         self.model.addConstrs(
             gp.quicksum(w[i, t] for t in range( T)) <= a
             for i in range( I)
-        )
-
-        # R9: límite movilidad
-        self.model.addConstrs(
-            gp.quicksum(V[e, o, i, t] for o in range( I) if o != i) <= x[e, i, t]
-            for e in range( E) for i in range( I) for t in range( T)
         )
 
     def solve_model(self):
@@ -140,12 +138,6 @@ def main():
     model.build_model()
     model.solve_model()
     model.print_results()
-
-    saver = data_saver.DataSaver()
-    data = []
-    for v in model.model.getVars():
-        data.append(f"{v.VarName} = {v.X}")
-    saver.save_data('results.txt', data)
 
 if __name__ == "__main__":
     main()
