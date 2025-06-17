@@ -51,17 +51,17 @@ class Model:
         M = 1e6
         
         # R1: disponibilidad diaria
-        self.model.addConstrs(
-            gp.quicksum(x[e, i, t] for i in range(I)) <= j[e][t]
+        self.disponibilidad_diaria = self.model.addConstrs(
+            gp.quicksum(self.x[e, i, t] for i in range(I)) <= self.j[e][t]
             for e in range(E) for t in range( T)
         )
 
         # R2: restricción de presupuesto
-        self.model.addConstrs(
-            gp.quicksum((c[e][i][t] + s[e][t]) * x[e, i, t] for e in range( E) for t in range( T)) +
-            gp.quicksum(n[e] * z[m][e] * y[m, i, t] for m in range( C) for e in range( E) for t in range( T)) + 
-            gp.quicksum((g[e][o][i][t] * V[e, o, i, t]) for e in range(E) for o in range(I) for t in range(T) for i in range(I) if i != o) 
-            <= f[i] for i in range( I)
+        self.restriccion_presupuesto = self.model.addConstrs(
+            gp.quicksum((self.c[e][i][t] + self.s[e][t]) * self.x[e, i, t] for e in range( E) for t in range( T)) +
+            gp.quicksum(self.n[e] * self.z[m][e] * self.y[m, i, t] for m in range( C) for e in range( E) for t in range( T)) + 
+            gp.quicksum((self.g[e][o][i][t] * self.V[e, o, i, t]) for e in range(E) for o in range(I) for t in range(T) for i in range(I) if i != o) 
+            <= self.f[i] for i in range( I)
         )
         
         # R3: mínimo por sector
@@ -105,7 +105,7 @@ class Model:
 
         # R9: límite movilidad
         self.model.addConstrs(
-            gp.quicksum(V[e, o, i, t] for o in range( I) if o != i) <= x[e, i, t]
+            gp.quicksum(self.V[e, o, i, t] for o in range( I) if o != i) <= self.x[e, i, t]
             for e in range( E) for i in range( I) for t in range( T)
         )
 
@@ -128,7 +128,7 @@ class Model:
         for i in range(I): 
             self.restriccion_presupuesto[i].ScenNRHS = self.f[i] * 0.1 
         
-        # escenario 2: Cambio de movilidad carabineros
+        # escenario 2: Cambio de disponibilidad diaria carabineros
         self.model.Params.ScenarioNumber = 2
         self.model.ScenNName  = "Cambio disponibilidad diaria carabineros"
 
@@ -145,8 +145,24 @@ class Model:
                     self.maximo_carabineros_sector[e, i, t].ScenNRHS = self.u[e][i][t] * 0.5
 
     def print_results(self):
+        if self.model.NumScenarios > 0:
+            self.print_analysis_results()
+        else:
+            self.print_normal_results()
+    def print_normal_results(self):
+        print("\n--- Resultados del modelo ---")
+        if self.model.status == GRB.OPTIMAL:
+            print(f"\nValor óptimo: {self.model.objVal:.2f} unidades de utilidad\n")
+        elif self.model.status == GRB.INFEASIBLE:
+            print("Modelo infactible. Calculando IIS...")
+            self.model.computeIIS()
+            self.model.write("modelo.ilp")
+            print("Archivo IIS escrito como 'modelo.ilp' en el directorio actual.")
+        else:
+            print("No se pudo encontrar una solución óptima.")
+        
+    def print_analysis_results(self):
         print("\nResumen de escenarios\n")
- 
         for s in range(self.model.NumScenarios):
             self.model.Params.ScenarioNumber = s
             print(f"Escenario {s} ({self.model.ScenNName})") 
@@ -178,11 +194,11 @@ def main():
     model.solve_model()
     model.print_results()
 
-    saver = data_saver.DataSaver()
-    data = []
-    for v in model.model.getVars():
-        data.append(f"{v.VarName} = {v.X}")
-    saver.save_data('results.txt', data)
+    # saver = data_saver.DataSaver()
+    # data = []
+    # for v in model.model.getVars():
+    #     data.append(f"{v.VarName} = {v.X}")
+    # saver.save_data('results.txt', data)
 
 if __name__ == "__main__":
     main()
