@@ -147,21 +147,13 @@ class Model:
         if self.model.status == GRB.OPTIMAL:
             print(f"\nValor óptimo: {self.model.objVal:.2f} unidades de utilidad\n")
         elif self.model.status == GRB.INFEASIBLE:
-            print("Modelo infactible. Calculando IIS...")
-            self.model.computeIIS()
-            self.model.write("modelo.ilp")
-            print("Archivo IIS escrito como 'modelo.ilp' en el directorio actual.")
+            print("Modelo infactible")
         elif self.model.status == GRB.INF_OR_UNBD:
-            print("Modelo infactible o no acotado. Reintentando solo para infactibilidad...")
-            self.model.setParam('DualReductions', 0)
-            self.model.optimize()
+            print("Modelo infactible o no acotado")
             if self.model.status == GRB.INFEASIBLE:
-                print("Modelo infactible tras desactivar DualReductions. Calculando IIS...")
-                self.model.computeIIS()
-                self.model.write("modelo.ilp")
-                print("Archivo IIS escrito como 'modelo.ilp' en el directorio actual.")
+                print("Modelo enfeasible")
             else:
-                print("No se pudo encontrar una solución óptima ni IIS.")
+                print("Modelo no acotado")
         else:
             print("No se pudo encontrar una solución óptima.")
             
