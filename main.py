@@ -2,6 +2,8 @@ import gurobipy as gp
 from gurobipy import GRB
 import data_loader
 import matplotlib.pyplot as plt
+import data_saver
+import numpy as np
 
 class Model:
     def __init__(self):
@@ -115,7 +117,7 @@ class Model:
         self.model.ScenNName  = "Cambio de presupuesto f"
 
         for i in range(self.I): 
-            self.restriccion_presupuesto[i].ScenNRHS = self.f[i] * 1.3 
+            self.restriccion_presupuesto[i].ScenNRHS = self.f[i] * 0.5
         
         # escenario 2: Cambio de disponibilidad diaria carabineros
         self.model.Params.ScenarioNumber = 2
@@ -123,7 +125,7 @@ class Model:
 
         for e in range(self.E):
             for t in range(self.T):
-                self.disponibilidad_diaria[e, t].ScenNRHS = self.j[e][t] * 1.5
+                self.disponibilidad_diaria[e, t].ScenNRHS = self.j[e][t] * 0.9
         
         # escenario 3: Cambio de maximo por sector 
         self.model.Params.ScenarioNumber = 3
@@ -143,12 +145,29 @@ class Model:
         else:
             print("No se pudo encontrar una solución óptima.")
             
+    def plot_x_scenarios(self):
+        for s in range(self.model.NumScenarios):
+            self.model.Params.ScenarioNumber = s
+            plt.figure(figsize=(10, 6))
+            for i in range(self.I): 
+                y = []
+                for t in range(self.T):  
+                    total = sum(self.x[e, i, t].X for e in range(self.E))  
+                    y.append(total)
+                plt.plot(range(self.T), y, label=f"Sector {i}")
+            scenario_name = getattr(self.model, "ScenNName", f"Escenario {s}")
+            plt.title(f"x variable - {scenario_name}")
+            plt.xlabel("Day")
+            plt.ylabel("Total x")
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
     def print_analysis_results(self):
         print("\nResumen de escenarios\n")
         for s in range(self.model.NumScenarios):
             self.model.Params.ScenarioNumber = s
             print(f"\nEscenario {s} ({self.model.ScenNName})") 
-
             if self.model.ModelSense * self.model.ScenNObjVal >= GRB.INFINITY:
                 if self.model.ModelSense * self.model.ScenNObjBound >= GRB.INFINITY:
                     print("Modelo no acotado")
@@ -158,21 +177,44 @@ class Model:
                 print(f"\nValor objetivo: {self.model.ModelSense * self.model.ScenNObjVal:.2f}")
     
     def graph_results(self):
-        # Placeholder for graphing results
-        print("Gráficos de resultados no implementados.")
-        for i in range(self.I):  # For each sector
-            y = []
-            for t in range(self.T):  # For each date
-                total = sum(self.x[e, i, t].X for e in range(self.E))  # Sum over especialidades
-                y.append(total)
-            plt.plot(range(self.T), y, label=f"Sector {i}")
+        self.x_graph_results()
+        self.w_graph_results()
+        plt.show()
 
-        plt.xlabel("Fecha")
-        plt.ylabel("Number de Carabineros")
-        plt.title("Carabineros per Sector en 1 año")
+    def x_graph_results(self):
+        for i in range(self.I):  
+            y = []
+            for t in range(self.T):  
+                total = sum(self.x[e, i, t].X for e in range(self.E))  
+                y.append(total)
+            plt.plot(range(self.T), y, label=f"Sector {i + 1}")
+
+        plt.xlabel("Día")
+        plt.ylabel("Number de carabineros")
+        plt.title("Carabineros por sector en 1 año")
         plt.legend()
         plt.tight_layout()
-        plt.show()
+
+    def w_graph_results(self):
+        for i in range(self.I):  
+            y = []
+            for t in range(self.T):  
+                y.append(self.w[i, t].X)
+            plt.plot(range(self.T), y, label=f"Sector {i + 1}")
+
+        plt.xlabel("Día")
+        plt.ylabel("Number de carabineros extra")
+        plt.title("Carabineros extra por sector en 1 año")
+        plt.legend()
+        plt.tight_layout()
+
+    def save_results(self):
+        saver = data_saver.DataSaver()
+        data = []
+        for x in self.model.getVars():
+            if x.X > 0:
+                data.append(f'{x.VarName}: {x.X}')
+        saver.save_data('results.txt', data)
 
     def control_analysis(self):
         print("¿Desea realizar un análisis de sensibilidad? (s/n)") 
@@ -182,11 +224,13 @@ class Model:
                 self.analysis_scenarios()
                 self.solve_model()
                 self.print_analysis_results()
+                self.plot_x_scenarios()
                 break
             elif choice == 'n':
                 print("Análisis de sensibilidad omitido.")
                 self.solve_model()
                 self.print_normal_results()
+                self.save_results()
                 self.graph_results()
                 break
 
@@ -194,6 +238,7 @@ def main():
     model = Model()
     model.build_model()
     model.control_analysis()
+    
 
 if __name__ == "__main__":
     main()
