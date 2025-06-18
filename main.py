@@ -36,13 +36,11 @@ class Model:
         self.x = self.model.addVars(range(self.E), range(self.I), range(self.T), vtype=GRB.CONTINUOUS, name="x")
         self.y = self.model.addVars(range(self.C), range(self.I), range(self.T), vtype=GRB.BINARY, name="y")
         self.w = self.model.addVars(range(self.I), range(self.T), vtype=GRB.CONTINUOUS, name="w")
-        self.V = self.model.addVars(range(self.E), range(self.I), range(self.I), range(self.T), vtype=GRB.CONTINUOUS, name="V")
         # función objetivo
         self.model.setObjective(
             gp.quicksum((self.c[e][i][t] + self.s[e][t]) * self.x[e, i, t] for e in range(self.E) for i in range(self.I) for t in range(self.T)) +
             gp.quicksum(self.n[e] * self.z[m][e] * self.y[m, i, t] for m in range(self.C) for i in range(self.I) for e in range(self.E) for t in range(self.T)) -
-            gp.quicksum(self.w[i, t] * self.b[i] for i in range(self.I) for t in range(self.T)) + 
-            gp.quicksum((self.g[e][o][i][t] * self.V[e, o, i, t]) for e in range(self.E) for o in range(self.I) for i in range(self.I) for t in range(self.T) if i != o),
+            gp.quicksum(self.w[i, t] * self.b[i] for i in range(self.I) for t in range(self.T)),
             GRB.MINIMIZE
         )
 
@@ -52,15 +50,8 @@ class Model:
         # R: restricción de presupuesto
         self.restriccion_presupuesto = self.model.addConstrs(
             gp.quicksum((self.c[e][i][t] + self.s[e][t]) * self.x[e, i, t] for e in range(self.E) for t in range(self.T)) +
-            gp.quicksum(self.n[e] * self.z[m][e] * self.y[m, i, t] for m in range(self.C) for e in range(self.E) for t in range(self.T)) + 
-            gp.quicksum((self.g[e][o][i][t] * self.V[e, o, i, t]) for e in range(self.E) for o in range(self.I) for t in range(self.T) for i in range(self.I) if i != o) 
+            gp.quicksum(self.n[e] * self.z[m][e] * self.y[m, i, t] for m in range(self.C) for e in range(self.E) for t in range(self.T))
             <= self.f[i] for i in range(self.I)
-        )
-
-        # R: límite movilidad
-        self.model.addConstrs(
-            gp.quicksum(self.V[e, o, i, t] for o in range(self.I) if o != i) <= self.x[e, i, t]
-            for e in range(self.E) for i in range(self.I) for t in range(self.T)
         )
 
         # R1: disponibilidad diaria
@@ -89,9 +80,7 @@ class Model:
 
         # R7: relación X e Y
         self.model.addConstrs(
-            gp.quicksum(self.y[m, i, t] * self.z[m][e] for m in range(self.C)) +
-            gp.quicksum(self.V[e, o, i, t] for o in range(self.I) if o != i) -
-            gp.quicksum(self.V[e, i, o, t] for o in range(self.I) if o != i)
+            gp.quicksum(self.y[m, i, t] * self.z[m][e] for m in range(self.C))
             == self.x[e, i, t]
             for e in range(self.E) for i in range(self.I) for t in range(self.T)
         )
