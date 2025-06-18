@@ -10,7 +10,7 @@ class Model:
     def build_model(self):
         # conjuntos
         self.I = 8   # sectores
-        self.C = 800  # carabineros
+        self.C = 700  # carabineros
         self.T = 365  # días
         self.E = 6   # especialidades
 
