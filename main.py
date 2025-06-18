@@ -1,6 +1,7 @@
 import gurobipy as gp
 from gurobipy import GRB
 import data_loader
+import matplotlib.pyplot as plt
 
 class Model:
     def __init__(self):
@@ -9,8 +10,8 @@ class Model:
 
     def build_model(self):
         # conjuntos
-        self.I = 8   # sectores
-        self.C = 700  # carabineros
+        self.I = 7   # sectores
+        self.C = 800  # carabineros
         self.T = 365  # días
         self.E = 6   # especialidades
 
@@ -156,6 +157,23 @@ class Model:
             else:
                 print(f"\nValor objetivo: {self.model.ModelSense * self.model.ScenNObjVal:.2f}")
     
+    def graph_results(self):
+        # Placeholder for graphing results
+        print("Gráficos de resultados no implementados.")
+        for i in range(self.I):  # For each sector
+            y = []
+            for t in range(self.T):  # For each date
+                total = sum(self.x[e, i, t].X for e in range(self.E))  # Sum over especialidades
+                y.append(total)
+            plt.plot(range(self.T), y, label=f"Sector {i}")
+
+        plt.xlabel("Fecha")
+        plt.ylabel("Number de Carabineros")
+        plt.title("Carabineros per Sector en 1 año")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
     def control_analysis(self):
         print("¿Desea realizar un análisis de sensibilidad? (s/n)") 
         while True:
@@ -169,6 +187,7 @@ class Model:
                 print("Análisis de sensibilidad omitido.")
                 self.solve_model()
                 self.print_normal_results()
+                self.graph_results()
                 break
 
 def main():
