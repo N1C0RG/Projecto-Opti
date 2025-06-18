@@ -137,12 +137,8 @@ class Model:
             print(f"\nValor óptimo: {self.model.objVal:.2f} unidades de utilidad\n")
         elif self.model.status == GRB.INFEASIBLE:
             print("Modelo infactible")
-        elif self.model.status == GRB.INF_OR_UNBD:
-            print("Modelo infactible o no acotado")
-            if self.model.status == GRB.INFEASIBLE:
-                print("Modelo enfeasible")
-            else:
-                print("Modelo no acotado")
+        elif self.model.status == GRB.UNBOUNDED:
+            print("Modelo no acotado")
         else:
             print("No se pudo encontrar una solución óptima.")
             
@@ -154,9 +150,9 @@ class Model:
 
             if self.model.ModelSense * self.model.ScenNObjVal >= GRB.INFINITY:
                 if self.model.ModelSense * self.model.ScenNObjBound >= GRB.INFINITY:
-                    print("\nINFEASIBLE")
-                else:    
-                    print("\nNO SOLUTION")
+                    print("Modelo no acotado")
+                else:   
+                    print("Modelo infactible")  
             else:
                 print(f"\nValor objetivo: {self.model.ModelSense * self.model.ScenNObjVal:.2f}")
     
