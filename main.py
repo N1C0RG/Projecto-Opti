@@ -10,7 +10,7 @@ class Model:
     def build_model(self):
         # conjuntos
         self.I = 8   # sectores
-        self.C = 800  # carabineros
+        self.C = 700  # carabineros
         self.T = 365  # días
         self.E = 6   # especialidades
 
@@ -137,12 +137,8 @@ class Model:
             print(f"\nValor óptimo: {self.model.objVal:.2f} unidades de utilidad\n")
         elif self.model.status == GRB.INFEASIBLE:
             print("Modelo infactible")
-        elif self.model.status == GRB.INF_OR_UNBD:
-            print("Modelo infactible o no acotado")
-            if self.model.status == GRB.INFEASIBLE:
-                print("Modelo enfeasible")
-            else:
-                print("Modelo no acotado")
+        elif self.model.status == GRB.UNBOUNDED:
+            print("Modelo no acotado")
         else:
             print("No se pudo encontrar una solución óptima.")
             
