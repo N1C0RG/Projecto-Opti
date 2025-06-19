@@ -9,7 +9,8 @@ class Model:
     def __init__(self):
         self.model = gp.Model("OptimizationModel")
         self.data_loader = data_loader.DataLoader()
-
+        self.colors = ['#6FA8DC', '#FFB347', '#77DD77', '#FF6961', '#B39EB5', '#FFF380', '#FFB7B2']
+        
     def build_model(self):
         # conjuntos
         self.I = 7   # sectores
@@ -50,6 +51,15 @@ class Model:
         )
 
         # restricciones
+        M = 1e6
+
+        # R: restricción de presupuesto
+        self.restriccion_presupuesto = self.model.addConstrs(
+            gp.quicksum((self.c[e][i][t] + self.s[e][t]) * self.x[e, i, t] for e in range(self.E) for t in range(self.T)) +
+            gp.quicksum(self.n[e] * self.z[m][e] * self.y[m, i, t] for m in range(self.C) for e in range(self.E) for t in range(self.T))
+            <= self.f[i] for i in range(self.I)
+        )
+
 
         # R1: disponibilidad diaria
         self.disponibilidad_diaria = self.model.addConstrs(
@@ -149,6 +159,19 @@ class Model:
         else:
             print("No se pudo encontrar una solución óptima.")
             
+    def scenario_graph_controller(self):
+        while True:
+            print("¿Quieres graficar los resultados de los escenarios? (s/n)")
+            choice = input().strip().lower()
+            if choice == 's':
+                self.plot_x_scenarios()
+                self.plot_x_scenarios_each_sector()
+                break
+            elif choice == 'n':
+                print("No se graficarán los resultados de los escenarios.")
+                break
+    
+
     def plot_x_scenarios(self):
         for s in range(self.model.NumScenarios):
             self.model.Params.ScenarioNumber = s
@@ -160,12 +183,30 @@ class Model:
                     y.append(total)
                 plt.plot(range(self.T), y, label=f"Sector {i}")
             scenario_name = getattr(self.model, "ScenNName", f"Escenario {s}")
-            plt.title(f"x variable - {scenario_name}")
-            plt.xlabel("Day")
-            plt.ylabel("Total x")
+            plt.title(f"Carabineros por sector en 1 año - {scenario_name}")
+            plt.xlabel("Día")
+            plt.ylabel("Number de carabineros")
             plt.legend()
             plt.tight_layout()
             plt.show()
+    
+    def plot_x_scenarios_each_sector(self):
+        for s in range(self.model.NumScenarios):
+            self.model.Params.ScenarioNumber = s
+            plt.figure(figsize=(10, 6))
+            for i in range(self.I): 
+                y = []
+                for t in range(self.T):  
+                    total = sum(self.x[e, i, t].X for e in range(self.E))  
+                    y.append(total)
+                plt.plot(range(self.T), y, color=self.colors[i])
+                scenario_name = getattr(self.model, "ScenNName", f"Escenario {s}")
+                plt.title(f"Carabineros sector {i + 1} en 1 año - {scenario_name}")
+                plt.xlabel("Día")
+                plt.ylabel("Number de carabineros")
+                plt.legend()
+                plt.tight_layout()
+                plt.show()
 
     def print_analysis_results(self):
         print("\nResumen de escenarios\n")
@@ -180,12 +221,20 @@ class Model:
             else:
                 print(f"\nValor objetivo: {self.model.ModelSense * self.model.ScenNObjVal:.2f}")
     
-    def graph_results(self):
-        self.x_graph_results()
-        self.w_graph_results()
-        plt.show()
+    def graph_results_controller(self):
+        while True:
+            print("¿Quieres graficar los resultados? (s/n)")
+            choice = input().strip().lower()
+            if choice == 's':
+                self.x_graph_all_sectors_results()
+                self.x_graph_specific_sector_results()
+                self.w_graph_results()
+                break
+            elif choice == 'n':
+                print("No se graficarán los resultados.")
+                break
 
-    def x_graph_results(self):
+    def x_graph_all_sectors_results(self):
         for i in range(self.I):  
             y = []
             for t in range(self.T):  
@@ -198,6 +247,22 @@ class Model:
         plt.title("Carabineros por sector en 1 año")
         plt.legend()
         plt.tight_layout()
+        plt.show()
+
+    def x_graph_specific_sector_results(self):
+        for i in range(self.I):  
+            y = []
+            for t in range(self.T):  
+                total = sum(self.x[e, i, t].X for e in range(self.E))  
+                y.append(total)
+            plt.plot(range(self.T), y, color=self.colors[i])
+            plt.xlabel("Día")
+            plt.ylabel("Number de carabineros")
+            plt.title(f"Carabineros sector {i + 1} en 1 año")
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
 
     def w_graph_results(self):
         for i in range(self.I):  
@@ -211,6 +276,8 @@ class Model:
         plt.title("Carabineros extra por sector en 1 año")
         plt.legend()
         plt.tight_layout()
+        plt.show()
+
 
     def save_results(self):
         saver = data_saver.DataSaver()
@@ -228,14 +295,15 @@ class Model:
                 self.analysis_scenarios()
                 self.solve_model()
                 self.print_analysis_results()
-                self.plot_x_scenarios()
+                self.scenario_graph_controller()
                 break
             elif choice == 'n':
                 print("Análisis de sensibilidad omitido.")
                 self.solve_model()
                 self.print_normal_results()
                 self.save_results()
-                self.graph_results()
+                self.graph_results_controller()
+
                 break
 
 def main():
