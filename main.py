@@ -179,7 +179,7 @@ class Model:
             for i in range(self.I): 
                 y = []
                 for t in range(self.T):  
-                    total = sum(self.x[e, i, t].X for e in range(self.E))  
+                    total = sum(self.x[e, i, t].ScenNX for e in range(self.E))  
                     y.append(total)
                 plt.plot(range(self.T), y, label=f"Sector {i}")
             scenario_name = getattr(self.model, "ScenNName", f"Escenario {s}")
@@ -197,8 +197,9 @@ class Model:
             for i in range(self.I): 
                 y = []
                 for t in range(self.T):  
-                    total = sum(self.x[e, i, t].X for e in range(self.E))  
+                    total = sum(self.x[e, i, t].ScenNX for e in range(self.E))  
                     y.append(total)
+                #print(f"Escenario {s}, Sector {i + 1}: {y}")
                 plt.plot(range(self.T), y, color=self.colors[i])
                 scenario_name = getattr(self.model, "ScenNName", f"Escenario {s}")
                 plt.title(f"Carabineros sector {i + 1} en 1 año - {scenario_name}")
